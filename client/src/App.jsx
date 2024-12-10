@@ -1,23 +1,39 @@
-import React, { useState } from 'react';
-import Editor from './components/Editor';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import Editor from "./components/Editor";
+import axios from "axios";
+import { getBoilerplateCode } from "./components/utils/languageBoilerplate";
+import Footer from "./components/Footer";
 
 const App = () => {
-  const [language, setLanguage] = useState('javascript'); 
+  const [language, setLanguage] = useState("javascript");
+  const [initialCode, setInitialCode] = useState("");
+
+  // Update initial code when language changes
+  useEffect(() => {
+    setInitialCode(getBoilerplateCode(language));
+  }, [language]);
 
   const handleExecute = async (code, language) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/code/execute', { code, language });
+      const response = await axios.post(
+        "http://localhost:8000/api/code/execute",
+        { code, language }
+      );
+      // console.log(response.data.result)
       return response.data.result;
     } catch (error) {
-      throw new Error(error.response ? error.response.data.error : error.message);
+      throw new Error(
+        error.response ? error.response.data.error : error.message
+      );
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-500 to-indigo-600">
       <div className="container mx-auto p-6">
-        <h1 className="text-white text-4xl mb-6 text-center">Online Code Editor</h1>
+        <h1 className="text-white text-4xl mb-6 text-center">
+          Online Code Editor
+        </h1>
         <div className="flex justify-center space-x-4 mb-4">
           {/* Language selector */}
           <select
@@ -35,7 +51,14 @@ const App = () => {
             <option value="rust">Rust</option>
           </select>
         </div>
-        <Editor language={language} onExecute={handleExecute} />
+        <Editor
+          language={language}
+          onExecute={handleExecute}
+          initialCode={initialCode}
+        />
+      </div>
+      <div className="flex items-center justify-center text-center">
+        <Footer />
       </div>
     </div>
   );

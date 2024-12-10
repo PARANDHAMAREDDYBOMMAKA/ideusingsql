@@ -2,8 +2,8 @@ import React from 'react';
 
 const Footer = () => {
   return (
-    <footer>
-      <p>Created with ❤️ by You</p>
+    <footer className='text-center'>
+      <p>Created with ❤️ by Parandhama</p>
     </footer>
   );
 };

@@ -1,58 +1,88 @@
 const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const util = require("util");
 
-// Function to execute code based on language
+const unlinkAsync = util.promisify(fs.unlink);
+
 const executeCode = (code, language) => {
   return new Promise((resolve, reject) => {
-    const tempFilePath = path.join(__dirname, "tempCode.js");
-    const tempPythonFilePath = path.join(__dirname, "tempCode.py");
-    const tempGoFilePath = path.join(__dirname, "tempCode.go");
-    const tempCppFilePath = path.join(__dirname, "tempCode.cpp");
-    const tempCFilePath = path.join(__dirname, "tempCode.c");
-    const tempJavaFilePath = path.join(__dirname, "tempCode.java");
-    const tempRubyFilePath = path.join(__dirname, "tempCode.rb");
+    const timestamp = Date.now();
+    const tempFilePath = path.join(
+      __dirname,
+      `tempCode_${timestamp}.${getFileExtension(language)}`
+    );
 
-    fs.writeFileSync(tempFilePath, code);
-
-    // Map of supported languages and commands
-    let command;
-    if (language === "javascript") {
-      command = `node ${tempFilePath}`;
-    } else if (language === "python") {
-      fs.writeFileSync(tempPythonFilePath, code);
-      command = `python3 ${tempPythonFilePath}`;
-    } else if (language === "go") {
-      fs.writeFileSync(tempGoFilePath, code);
-      command = `go run ${tempGoFilePath}`;
-    } else if (language === "c") {
-      fs.writeFileSync(tempCFilePath, code);
-      command = `gcc ${tempCFilePath} -o tempCode && ./tempCode`;
-    } else if (language === "cpp") {
-      fs.writeFileSync(tempCppFilePath, code);
-      command = `g++ ${tempCppFilePath} -o tempCode && ./tempCode.cpp`;
-    } else if (language === "java") {
-      fs.writeFileSync(tempJavaFilePath, code);
-      command = `javac ${tempJavaFilePath} && java tempCode`;
-    } else if (language === "ruby") {
-      fs.writeFileSync(tempRubyFilePath, code);
-      command = `ruby ${tempRubyFilePath}`;
-    } else if (language === "rust") {
+    try {
+      // Write the code to a temporary file
       fs.writeFileSync(tempFilePath, code);
-      command = `rustc ${tempFilePath} -o tempCode && ./tempCode`;
-    } else {
-      reject("Unsupported language");
-      return;
-    }
 
-    exec(command, (err, stdout, stderr) => {
-      if (err || stderr) {
-        reject(err || stderr);
-        return;
-      }
-      resolve(stdout);
-    });
+      // Get the execution command
+      const command = getExecutionCommand(language, tempFilePath);
+      console.log(`Executing command: ${command}`);
+
+      // Execute the code
+      exec(command, { timeout: 20000 }, async (err, stdout, stderr) => {
+        try {
+          // Clean up temporary files
+          console.log("Cleaning up file:", tempFilePath);
+          await unlinkAsync(tempFilePath);
+
+          if (err) {
+            console.error("Execution error:", err.message || stderr);
+            reject(err.message || stderr);
+            return;
+          }
+
+          if (stderr) {
+            console.error("Runtime error:", stderr);
+            reject(stderr);
+            return;
+          }
+
+          resolve(stdout.trim());
+        } catch (cleanupError) {
+          console.error("Error during cleanup:", cleanupError);
+          reject(cleanupError);
+        }
+      });
+    } catch (error) {
+      reject(`Execution error: ${error.message}`);
+    }
   });
 };
+
+// Helper function to get the file extension
+function getFileExtension(language) {
+  const extensions = {
+    javascript: "js",
+    python: "py",
+    go: "go",
+    c: "c",
+    cpp: "cpp",
+    java: "java",
+    ruby: "rb",
+    rust: "rs",
+  };
+  return extensions[language] || "txt";
+}
+
+// Helper function to get the execution command
+function getExecutionCommand(language, tempFilePath) {
+  const commands = {
+    javascript: `node ${tempFilePath}`,
+    python: `python3 ${tempFilePath}`,
+    go: `go run ${tempFilePath}`,
+    c: `gcc ${tempFilePath} -o ${tempFilePath}.out && ${tempFilePath}.out`,
+    cpp: `g++ ${tempFilePath} -o ${tempFilePath}.out && ${tempFilePath}.out`,
+    java: `javac ${tempFilePath} && java -cp ${path.dirname(
+      tempFilePath
+    )} ${path.basename(tempFilePath, ".java")}`,
+    ruby: `ruby ${tempFilePath}`,
+    rust: `rustc ${tempFilePath} -o ${tempFilePath}.out && ${tempFilePath}.out`,
+  };
+
+  return commands[language] || `node ${tempFilePath}`;
+}
 
 module.exports = { executeCode };

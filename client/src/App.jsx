@@ -16,7 +16,7 @@ const App = () => {
   const handleExecute = async (code, language) => {
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/code/execute",
+        "https://ideusingsql.onrender.com/api/code/execute",
         { code, language }
       );
       // console.log(response.data.result)
